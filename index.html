@@ -103,7 +103,10 @@
   templates.push(function(){ let items=[]; baseGround(items); items.push({x:180,y:560,w:120,h:16,type:'solid'}); items.push({x:320,y:560,w:120,h:16,type:'solid'}); items.push({x:260,y:600,w:20,h:40,type:'spike'}); items.push({x:420,y:600,w:20,h:40,type:'spike'}); items.push({x:580,y:520,w:40,h:40,type:'goal'}); return {name:'Spikes & Jump', start:{x:40,y:540}, items}; });
 
   // MIDDLE: moving platforms, shrink-to-pass tunnels
-  templates.push(function(){ let items=[]; baseGround(items); items.push({x:140,y:520,w:100,h:16,type:'solid'}); items.push({x:300,y:480,w:120,h:16,type:'moving',vx:0,vy:0.6,range:60}); items.push({x:480,y:420,w:140,h:16,type:'solid'}); items.push({x:300,y:360,w:80,h:16,type:'solid'}); items.push({x:600,y:320,w:40,h:40,type:'goal'}); return {name:'Rising Platform', start:{x:60,y:520}, items}; });
+  templates.push(function(){ let items=[]; baseGround(items); items.push({x:140,y:520,w:100,h:16,type:'solid'}); 
+    // VERTICAL: REDUCED: 0.6 -> 0.3
+    items.push({x:300,y:480,w:120,h:16,type:'moving',vx:0,vy:0.3,range:60}); 
+    items.push({x:480,y:420,w:140,h:16,type:'solid'}); items.push({x:300,y:360,w:80,h:16,type:'solid'}); items.push({x:600,y:320,w:40,h:40,type:'goal'}); return {name:'Rising Platform', start:{x:60,y:520}, items}; });
 
   templates.push(function(){ let items=[]; baseGround(items); // shrink puzzle
     items.push({x:120,y:540,w:60,h:100,type:'solid'});
@@ -114,7 +117,10 @@
     items.push({x:580,y:480,w:40,h:40,type:'goal'});
     return {name:'Shrink & Slip', start:{x:40,y:520}, items}; });
 
-  templates.push(function(){ let items=[]; baseGround(items); items.push({x:120,y:540,w:120,h:16,type:'solid'}); items.push({x:260,y:520,w:60,h:16,type:'spike'}); items.push({x:340,y:500,w:60,h:16,type:'solid'}); items.push({x:440,y:460,w:60,h:16,type:'moving',vx:1,vy:0,range:120}); items.push({x:600,y:420,w:40,h:40,type:'goal'}); return {name:'Moving Danger', start:{x:40,y:520}, items}; });
+  templates.push(function(){ let items=[]; baseGround(items); items.push({x:120,y:540,w:120,h:16,type:'solid'}); items.push({x:260,y:520,w:60,h:16,type:'spike'}); items.push({x:340,y:500,w:60,h:16,type:'solid'}); 
+    // HORIZONTAL: REDUCED: 1 -> 0.5
+    items.push({x:440,y:460,w:60,h:16,type:'moving',vx:0.5,vy:0,range:120}); 
+    items.push({x:600,y:420,w:40,h:40,type:'goal'}); return {name:'Moving Danger', start:{x:40,y:520}, items}; });
 
   // HARDER: switch-doors, precision tunnels
   templates.push(function(){ let items=[]; baseGround(items); items.push({x:160,y:540,w:80,h:16,type:'solid'}); items.push({x:300,y:520,w:60,h:16,type:'solid'}); items.push({x:420,y:480,w:16,h:120,type:'solid'}); // vertical bar forming narrow corridor
@@ -138,7 +144,8 @@
       copy.items.push({x: 140 + (i*7)%360, y:600, w:20, h:40, type:'spike'});
     }
     if(i>15){ // add moving platforms
-      copy.items.push({x: 200 + (i*11)%300, y:480 - (i%3)*30, w:80, h:16, type:'moving', vx: (i%2?0.8:-0.8), vy:0, range:100 + (i%4)*30});
+      // RANDOMLY GENERATED: REDUCED: 0.8/-0.8 -> 0.4/-0.4
+      copy.items.push({x: 200 + (i*11)%300, y:480 - (i%3)*30, w:80, h:16, type:'moving', vx: (i%2?0.4:-0.4), vy:0, range:100 + (i%4)*30});
     }
     if(i>22){ // narrow tunnels requiring shrink
       copy.items.push({x: 300 + (i*5)%220, y:420, w:16, h:120, type:'solid'});
@@ -154,13 +161,17 @@
 
   // add some handcrafted boss/puzzle near the end
   levels[30] = {
-    name: '31. The Elevator Puzzle', start:{x:60,y:520}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:160,y:520,w:80,h:16,type:'solid'},{x:280,y:520,w:80,h:16,type:'moving',vx:0,vy:-0.7,range:160},{x:420,y:420,w:80,h:16,type:'solid'},{x:540,y:360,w:40,h:16,type:'solid'},{x:600,y:320,w:40,h:40,type:'goal'}]
+    name: '31. The Elevator Puzzle', start:{x:60,y:520}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:160,y:520,w:80,h:16,type:'solid'},
+    // ELEVATOR: REDUCED: -0.7 -> -0.35
+    {x:280,y:520,w:80,h:16,type:'moving',vx:0,vy:-0.35,range:160},{x:420,y:420,w:80,h:16,type:'solid'},{x:540,y:360,w:40,h:16,type:'solid'},{x:600,y:320,w:40,h:40,type:'goal'}]
   };
   levels[31] = {
     name: '32. Narrow Mind', start:{x:40,y:540}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:120,y:520,w:40,h:120,type:'solid'},{x:180,y:520,w:40,h:120,type:'solid'},{x:240,y:520,w:40,h:120,type:'solid'},{x:300,y:520,w:40,h:120,type:'solid'},{x:420,y:520,w:120,h:16,type:'solid'},{x:600,y:420,w:40,h:40,type:'goal'}]
   };
   levels[32] = {
-    name: '33. Final Test', start:{x:60,y:520}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:140,y:540,w:80,h:16,type:'solid'},{x:240,y:520,w:60,h:16,type:'spike'},{x:320,y:500,w:120,h:16,type:'moving',vx:1.2,vy:0,range:140},{x:480,y:460,w:16,h:120,type:'solid'},{x:600,y:420,w:40,h:40,type:'goal'}]
+    name: '33. Final Test', start:{x:60,y:520}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:140,y:540,w:80,h:16,type:'solid'},{x:240,y:520,w:60,h:16,type:'spike'},
+    // FINAL TEST: REDUCED: 1.2 -> 0.6
+    {x:320,y:500,w:120,h:16,type:'moving',vx:0.6,vy:0,range:140},{x:480,y:460,w:16,h:120,type:'solid'},{x:600,y:420,w:40,h:40,type:'goal'}]
   };
 
   // collision helpers
@@ -175,11 +186,11 @@
     player.x = lvl.start.x; player.y = lvl.start.y; player.vx=0; player.vy=0; player.r=player.baseR; player.shrunk=false; lives = Math.max(1,lives);
     player.standingOn = null;
     // attach runtime fields for moving platforms
-    for(const it of lvl.items){ 
-      if(it.type==='moving'){ 
-        it._origX = it.x; it._origY = it.y; it._t = 0; 
+    for(const it of lvl.items){ 
+      if(it.type==='moving'){ 
+        it._origX = it.x; it._origY = it.y; it._t = 0; 
         it._prevX = it.x; it._prevY = it.y; // For tracking platform velocity
-      } 
+      } 
     }
     updatePreview();
   }
@@ -211,32 +222,32 @@
   function applyShrink(val){ if(val && !player.shrunk){ player.r = Math.max(8, player.baseR*player.shrinkFactor); player.shrunk=true; } else if(!val && player.shrunk){ player.r = player.baseR; player.shrunk=false; } }
 
   // update moving platforms
-  function updateMovingPlatforms(lvl,dt){ 
-    for(const it of lvl.items){ 
-      if(it.type==='moving'){ 
+  function updateMovingPlatforms(lvl,dt){ 
+    for(const it of lvl.items){ 
+      if(it.type==='moving'){ 
         it._prevX = it.x; it._prevY = it.y; // Store previous position
-        it._t += dt; 
+        it._t += dt; 
         // simple sinusoidal movement
         it.x = it._origX + Math.sin(it._t*0.01) * (it.vx ? it.range : 0);
         it.y = it._origY + Math.sin(it._t*0.01) * (it.vy ? it.range : 0);
-      } 
-    } 
+      } 
+    } 
   }
 
   // resolve collisions with better separation handling
-  function resolveCollisions(){ 
-    player.onGround = false; 
+  function resolveCollisions(){ 
+    player.onGround = false; 
     const lvl = levels[currentLevel];
 
-    for(const it of lvl.items){ 
+    for(const it of lvl.items){ 
       if(it.type==='solid' || it.type==='moving' || it.type==='spike' || it.type==='goal'){
         if(collideRect(player.x, player.y, player.r, it.x, it.y, it.w, it.h)){
-          
+          
           // find nearest point
           const nx = Math.max(it.x, Math.min(player.x, it.x+it.w));
           const ny = Math.max(it.y, Math.min(player.y, it.y+it.h));
           const dx = player.x - nx; const dy = player.y - ny;
-          
+          
           const penetrationX = player.r - Math.abs(dx);
           const penetrationY = player.r - Math.abs(dy);
 
@@ -245,9 +256,9 @@
             if(penetrationY < penetrationX){
               // Resolve Y collision
               if(dy > 0){ // below
-                player.y = it.y + it.h + player.r + 0.01; player.vy = 0; 
+                player.y = it.y + it.h + player.r + 0.01; player.vy = 0; 
               } else { // above (landing on)
-                player.y = it.y - player.r - 0.01; player.vy = 0; player.onGround = true; 
+                player.y = it.y - player.r - 0.01; player.vy = 0; player.onGround = true; 
                 player.standingOn = it; // Set standing platform
               }
             } else {
@@ -256,10 +267,10 @@
             }
           }
 
-          if(it.type==='spike'){ dieAndRespawn(); return; } 
-          if(it.type==='goal'){ nextLevel(); return; } 
+          if(it.type==='spike'){ dieAndRespawn(); return; } 
+          if(it.type==='goal'){ nextLevel(); return; } 
         }
-      } 
+      } 
     }
 
     // Logic to handle moving platforms
@@ -277,16 +288,16 @@
   let lastMs = performance.now();
   function update(){
     const now = performance.now(); const dt = now - lastMs; lastMs = now;
-    const accel = 1.0; 
+    const accel = 1.0; 
     const scale = dt/16; // Use this scale for frame-rate-independent movement
 
     if(keys['arrowleft']||keys['a']) player.vx -= accel;
     if(keys['arrowright']||keys['d']) player.vx += accel;
 
     // Jumping is now frame-rate independent
-    if((keys['arrowup']||keys['w']||keys[' ']) && player.onGround){ 
+    if((keys['arrowup']||keys['w']||keys[' ']) && player.onGround){ 
       player.vy = -16 * scale; // Apply jump force scaled by time
-      player.onGround=false; 
+      player.onGround=false; 
       player.standingOn = null; // Stop standing on platform when jumping
     }
     if(keys['z']) applyShrink(true); else if(keys['x']) applyShrink(false);
@@ -309,7 +320,7 @@
     if(player.y - player.r < 0){ player.y = player.r; player.vy = 0; }
     if(player.y - player.r > H+220){ dieAndRespawn(); }
 
-    resolveCollisions(); 
+    resolveCollisions(); 
   }
 
   function draw(){
@@ -350,9 +361,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
