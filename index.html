@@ -27,7 +27,7 @@
 <body>
   <div class="wrap">
     <div style="position:relative;">
-      <div class="hud" id="hud">Level 1 &nbsp; &nbsp; Lives: 3 &nbsp; &nbsp; Mode: Classic</div>
+      <div class="hud" id="hud">Level 1 &nbsp; &nbsp; Lives: 5 &nbsp; &nbsp; Mode: Classic</div>
       <canvas id="game" width="640" height="640"></canvas>
     </div>
 
@@ -84,7 +84,15 @@
   let airDrag = 0.87;
   let keys = {};
   let currentLevel = 0;
-  let lives = 3;
+  let lives = 5; // **CHANGE 1: STARTING LIVES INCREASED TO 5**
+  
+  let gameState = 'playing'; // 'playing', 'replaying', 'paused'
+  let playerHistory = []; // **REPLAY SYSTEM: Stores player position/radius for replay**
+  let replayTimer = 0;
+  const replayDurationMs = 3000;
+  const historyLengthMs = 3000; // Keep 3 seconds of history
+  const historySampleRate = 16; // Sample every 16ms (approx 60 FPS)
+  let timeSinceLastSample = 0;
 
   // World objects types: solid, spike, goal, moving (solid with vx/vy), switch, door
 
@@ -102,9 +110,9 @@
   templates.push(function(){ let items=[]; baseGround(items); items.push({x:180,y:560,w:120,h:16,type:'solid'}); items.push({x:320,y:560,w:120,h:16,type:'solid'}); items.push({x:260,y:600,w:20,h:40,type:'spike'}); items.push({x:420,y:600,w:20,h:40,type:'spike'}); items.push({x:580,y:520,w:40,h:40,type:'goal'}); return {name:'Spikes & Jump', start:{x:40,y:540}, items}; });
 
   // MIDDLE: moving platforms, shrink-to-pass tunnels
-  templates.push(function(){ let items=[]; baseGround(items); items.push({x:140,y:520,w:100,h:16,type:'solid'}); 
+  templates.push(function(){ let items=[]; baseGround(items); items.push({x:140,y:520,w:100,h:16,type:'solid'}); 
     // VERTICAL: REDUCED: 0.6 -> 0.3 (50% reduction)
-    items.push({x:300,y:480,w:120,h:16,type:'moving',vx:0,vy:0.3,range:60}); 
+    items.push({x:300,y:480,w:120,h:16,type:'moving',vx:0,vy:0.3,range:60}); 
     items.push({x:480,y:420,w:140,h:16,type:'solid'}); items.push({x:300,y:360,w:80,h:16,type:'solid'}); items.push({x:600,y:320,w:40,h:40,type:'goal'}); return {name:'Rising Platform', start:{x:60,y:520}, items}; });
 
   templates.push(function(){ let items=[]; baseGround(items); // shrink puzzle
@@ -116,9 +124,9 @@
     items.push({x:580,y:480,w:40,h:40,type:'goal'});
     return {name:'Shrink & Slip', start:{x:40,y:520}, items}; });
 
-  templates.push(function(){ let items=[]; baseGround(items); items.push({x:120,y:540,w:120,h:16,type:'solid'}); items.push({x:260,y:520,w:60,h:16,type:'spike'}); items.push({x:340,y:500,w:60,h:16,type:'solid'}); 
+  templates.push(function(){ let items=[]; baseGround(items); items.push({x:120,y:540,w:120,h:16,type:'solid'}); items.push({x:260,y:520,w:60,h:16,type:'spike'}); items.push({x:340,y:500,w:60,h:16,type:'solid'}); 
     // HORIZONTAL: REDUCED: 1 -> 0.3 (70% reduction)
-    items.push({x:440,y:460,w:60,h:16,type:'moving',vx:0.3,vy:0,range:120}); 
+    items.push({x:440,y:460,w:60,h:16,type:'moving',vx:0.3,vy:0,range:120}); 
     items.push({x:600,y:420,w:40,h:40,type:'goal'}); return {name:'Moving Danger', start:{x:40,y:520}, items}; });
 
   // HARDER: switch-doors, precision tunnels
@@ -158,9 +166,9 @@
     }
     if(i>50){ // add moving platforms (REDUCED SPEED)
       // HORIZONTAL: REDUCED: 0.8/-0.8 -> 0.24/-0.24 (70% reduction)
-      const vx_base = (i%2?0.24:-0.24); 
+      const vx_base = (i%2?0.24:-0.24); 
       // VERTICAL: REDUCED: 0.6/-0.6 -> 0.3/-0.3 (50% reduction)
-      const vy_base = (i%3===0 ? (i%2?0.3:-0.3) : 0); 
+      const vy_base = (i%3===0 ? (i%2?0.3:-0.3) : 0); 
       copy.items.push({x: 200 + (i*11)%300, y:480 - (i%3)*30, w:80, h:16, type:'moving', vx: vx_base, vy: vy_base, range:100 + (i%4)*30});
     }
     if(i>70){ // narrow tunnels requiring shrink
@@ -204,8 +212,10 @@
 
   function resetLevel(){
     const lvl = levels[currentLevel];
-    player.x = lvl.start.x; player.y = lvl.start.y; player.vx=0; player.vy=0; player.r=player.baseR; player.shrunk=false; lives = Math.max(1,lives);
+    player.x = lvl.start.x; player.y = lvl.start.y; player.vx=0; player.vy=0; player.r=player.baseR; player.shrunk=false; lives = Math.max(0,lives); // Ensure lives don't reset to 5 if below 5
     player.standingOn = null;
+    gameState = 'playing'; // Reset game state
+    playerHistory = []; // Clear history for the new attempt
     // attach runtime fields for moving platforms
     for(const it of lvl.items){ 
       if(it.type==='moving'){ 
@@ -222,8 +232,28 @@
     hud.textContent = `Level ${currentLevel+1} / ${levels.length}  Lives: ${lives}`;
   }
 
-  function dieAndRespawn(){ lives -=1; if(lives<=0){ currentLevel=0; lives=3; } resetLevel(); }
-  function nextLevel(){ currentLevel++; if(currentLevel>=levels.length) currentLevel=0; resetLevel(); }
+  function dieAndRespawn(){ 
+    lives -=1; 
+    
+    if(lives <= 0){
+      // Game Over - No Replay
+      currentLevel=0; 
+      lives=5; 
+      resetLevel();
+    } else {
+      // **REPLAY START: Set game state and timer**
+      gameState = 'replaying';
+      replayTimer = 0;
+      hud.textContent = `Level ${currentLevel+1} / ${levels.length}  Lives: ${lives} - Replaying Death!`;
+    }
+  }
+  
+  function nextLevel(){ 
+    currentLevel++; 
+    if(currentLevel>=levels.length) currentLevel=0; 
+    playerHistory = []; // Clear history on level win
+    resetLevel(); 
+  }
 
   // Input
   window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()]=true; if(e.key.toLowerCase()==='r') resetLevel(); });
@@ -264,7 +294,11 @@
       if(it.type==='solid' || it.type==='moving' || it.type==='spike' || it.type==='goal'){
         if(collideRect(player.x, player.y, player.r, it.x, it.y, it.w, it.h)){
           
-          // find nearest point
+          // Trigger Death/Goal logic BEFORE pushing out
+          if(it.type==='spike'){ dieAndRespawn(); return; } 
+          if(it.type==='goal'){ nextLevel(); return; } 
+          
+          // Find nearest point for resolution
           const nx = Math.max(it.x, Math.min(player.x, it.x+it.w));
           const ny = Math.max(it.y, Math.min(player.y, it.y+it.h));
           const dx = player.x - nx; const dy = player.y - ny;
@@ -288,8 +322,6 @@
             }
           }
 
-          if(it.type==='spike'){ dieAndRespawn(); return; } 
-          if(it.type==='goal'){ nextLevel(); return; } 
         }
       } 
     }
@@ -305,10 +337,31 @@
     }
   }
 
+  // **REPLAY SYSTEM: Record history**
+  function recordHistory(dt) {
+    timeSinceLastSample += dt;
+    if (timeSinceLastSample >= historySampleRate) {
+      playerHistory.push({ x: player.x, y: player.y, r: player.r, timestamp: performance.now() });
+      timeSinceLastSample = 0;
+    }
+    // Trim old history
+    const cutoff = performance.now() - historyLengthMs;
+    while (playerHistory.length > 0 && playerHistory[0].timestamp < cutoff) {
+      playerHistory.shift();
+    }
+  }
+
   // time tracking for moving platforms
   let lastMs = performance.now();
-  function update(){
-    const now = performance.now(); const dt = now - lastMs; lastMs = now;
+
+  function update(dt){ // Takes dt argument now
+    
+    // Skip update if not playing
+    if(gameState !== 'playing') return;
+
+    // **REPLAY SYSTEM: Record history while playing**
+    recordHistory(dt);
+    
     const accel = 1.0; 
     const scale = dt/16; // Use this scale for frame-rate-independent movement
 
@@ -339,12 +392,49 @@
     if(player.x - player.r < 0){ player.x = player.r; player.vx=0; }
     if(player.x + player.r > W){ player.x = W - player.r; player.vx=0; }
     if(player.y - player.r < 0){ player.y = player.r; player.vy = 0; }
-    if(player.y - player.r > H+220){ dieAndRespawn(); }
+    if(player.y - player.r > H+220){ dieAndRespawn(); } // Death by falling
 
     resolveCollisions(); 
   }
+  
+  // **REPLAY SYSTEM: Draw the player's history in slow motion**
+  function drawReplay(time) {
+    const replayLength = playerHistory.length;
+    const historyDuration = replayHistory.length > 0 ? (replayHistory[replayLength - 1].timestamp - replayHistory[0].timestamp) : 0;
+    
+    const scaledTime = time * 0.5; // 0.5x speed
+    const historyIndex = Math.floor(scaledTime / historySampleRate);
+    
+    // Draw trail of old positions
+    for(let i=0; i < replayHistory.length; i++) {
+      const p = replayHistory[i];
+      ctx.beginPath();
+      // Fades out the older dots
+      const alpha = Math.max(0.01, 0.5 - (replayHistory.length - 1 - i) / replayHistory.length * 0.5); 
+      ctx.fillStyle = `rgba(255, 92, 92, ${alpha})`;
+      ctx.arc(p.x, p.y, p.r * 0.5, 0, Math.PI*2);
+      ctx.fill();
+    }
 
-  function draw(){
+    // Draw the main replay ball position
+    if (historyIndex < replayLength) {
+      const p = replayHistory[historyIndex];
+      ctx.beginPath();
+      ctx.fillStyle = player.color; 
+      ctx.shadowColor = player.color; 
+      ctx.shadowBlur = 16; 
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); 
+      ctx.fill(); 
+      ctx.shadowBlur = 0;
+      // Draw highlight/eye
+      ctx.beginPath(); ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.arc(p.x - p.r*0.25, p.y - p.r*0.45, p.r*0.36, 0, Math.PI*2); ctx.fill();
+    } else {
+      // Replay is over
+      resetLevel();
+    }
+  }
+
+  function drawLevelOnly(){
     ctx.clearRect(0,0,W,H);
     // background
     ctx.fillStyle = '#061423'; ctx.fillRect(0,0,W,H);
@@ -366,13 +456,53 @@
         ctx.beginPath(); ctx.fillStyle = '#2ecc71'; ctx.arc(it.x+it.w/2, it.y+it.h/2, Math.min(it.w,it.h)/2, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#072e1a'; ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText('GO', it.x+it.w/2, it.y+it.h/2+5);
       }
     }
+  }
+
+  function draw(){
+    drawLevelOnly();
+
+    if(gameState === 'replaying') {
+      drawReplay(replayTimer);
+      return;
+    }
 
     // player
     ctx.beginPath(); ctx.fillStyle = player.color; ctx.shadowColor = player.color; ctx.shadowBlur = 12; ctx.arc(player.x, player.y, player.r, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
     ctx.beginPath(); ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.arc(player.x - player.r*0.25, player.y - player.r*0.45, player.r*0.36, 0, Math.PI*2); ctx.fill();
   }
 
-  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  // **MODIFIED: Main game loop logic**
+  let replayHistory = []; // Variable to store history for drawing in drawReplay
+
+  function loop(){ 
+    const now = performance.now(); 
+    const dt = now - lastMs; 
+    lastMs = now;
+    
+    if(gameState === 'playing') {
+      update(dt);
+      draw();
+    } else if (gameState === 'replaying') {
+      replayTimer += dt;
+      // Set up history array once
+      if (replayHistory.length === 0) {
+        replayHistory = playerHistory;
+        replayTimer = 0; // Start the replay timer
+      }
+      
+      draw();
+      
+      if (replayTimer * 0.5 > replayHistory.length * historySampleRate) { // 0.5x speed logic
+        replayHistory = []; // Clear for next replay
+        resetLevel(); // Respawn player after replay ends
+      }
+    } else {
+      // Game is paused, just draw once
+      draw();
+    }
+    
+    requestAnimationFrame(loop); 
+  }
 
   // boot
   resetLevel(); loop();
