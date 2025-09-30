@@ -18,8 +18,8 @@
     .btn{display:inline-block;padding:8px 10px;border-radius:6px;background:#0b1a2b;border:1px solid rgba(255,255,255,0.02);cursor:pointer}
     .footer{margin-top:14px;color:var(--muted);font-size:12px}
     .hud{position:absolute;left:22px;top:14px;color:#fff;font-weight:700;text-shadow:0 1px 0 rgba(0,0,0,.6)}
-    .touch-row{display:flex;gap:8px;margin-top:10px}
-    .touch-btn{flex:1;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);text-align:center;user-select:none}
+    .touch-row{display:flex;gap:12px;margin-top:10px} /* Increased gap */
+    .touch-btn{flex:1;padding:16px 10px;border-radius:8px;background:rgba(255,255,255,0.02);text-align:center;user-select:none; font-size: 16px; font-weight: 700;} /* Increased padding/size */
     .muted{color:var(--muted);font-size:13px}
     .level-preview{height:240px;background:linear-gradient(180deg,#071227 0%, #081520 100%);border-radius:6px;padding:8px;overflow:auto;font-size:13px}
   </style>
@@ -33,11 +33,10 @@
 
     <div class="sidebar">
       <h1>Bounce Tales — Full Bounce Style</h1>
-      <p class="muted">Controls: ← → to move, ↑ to jump. Z = shrink, X = expand, R = restart. Touch controls below for mobile.</p>
+      <p class="muted">Controls: **Arrows** to move/jump. **Z/X** to change size. **R** to restart.</p>
 
       <div class="controls">
-        <div class="kbd">Keyboard: ← → ↑  |  Z (shrink)  X (expand)  R (restart)</div>
-        <div class="kbd">Tip: shrink to fit narrow tunnels, expand to press switches or trigger pads.</div>
+        <div class="kbd">Tip: **Shrink** to fit tunnels, **Expand** to hit switches.</div>
 
         <div style="display:flex;gap:8px;margin-top:8px">
           <div class="btn" id="prev">Prev Level</div>
@@ -47,14 +46,14 @@
 
         <div class="level-preview" id="levelPreview"></div>
 
-        <div class="footer">33 handcrafted levels with a gradual difficulty ramp: platforms, moving platforms, spikes, shrink tunnels, switches, and puzzle sections. If you want sound, checkpoints, or a level editor next — say the word.</div>
+        <div class="footer">33 levels with platforms, spikes, tunnels, and puzzles.</div>
 
         <div style="margin-top:12px">
           <div class="muted">Touch Controls</div>
           <div class="touch-row">
-            <div class="touch-btn" id="touch-left">◀</div>
-            <div class="touch-btn" id="touch-jump">▲</div>
-            <div class="touch-btn" id="touch-right">▶</div>
+            <div class="touch-btn" id="touch-left">LEFT</div>
+            <div class="touch-btn" id="touch-jump">JUMP</div>
+            <div class="touch-btn" id="touch-right">RIGHT</div>
           </div>
         </div>
       </div>
