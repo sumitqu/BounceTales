@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Bounce Tales — Full Style (33 Levels)</title>
+  <title>Bounce Tales — Full Style (100 Levels)</title>
   <style>
     :root{--bg:#071423;--panel:#0f1724;--accent:#ff5c5c;--muted:#9aa6b2}
     html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
@@ -18,8 +18,8 @@
     .btn{display:inline-block;padding:8px 10px;border-radius:6px;background:#0b1a2b;border:1px solid rgba(255,255,255,0.02);cursor:pointer}
     .footer{margin-top:14px;color:var(--muted);font-size:12px}
     .hud{position:absolute;left:22px;top:14px;color:#fff;font-weight:700;text-shadow:0 1px 0 rgba(0,0,0,.6)}
-    .touch-row{display:flex;gap:12px;margin-top:10px} /* Increased gap */
-    .touch-btn{flex:1;padding:16px 10px;border-radius:8px;background:rgba(255,255,255,0.02);text-align:center;user-select:none; font-size: 16px; font-weight: 700;} /* Increased padding/size */
+    .touch-row{display:flex;gap:12px;margin-top:10px}
+    .touch-btn{flex:1;padding:16px 10px;border-radius:8px;background:rgba(255,255,255,0.02);text-align:center;user-select:none; font-size: 16px; font-weight: 700;}
     .muted{color:var(--muted);font-size:13px}
     .level-preview{height:240px;background:linear-gradient(180deg,#071227 0%, #081520 100%);border-radius:6px;padding:8px;overflow:auto;font-size:13px}
   </style>
@@ -46,7 +46,7 @@
 
         <div class="level-preview" id="levelPreview"></div>
 
-        <div class="footer">33 levels with platforms, spikes, tunnels, and puzzles.</div>
+        <div class="footer">100 levels with platforms, spikes, tunnels, and puzzles.</div>
 
         <div style="margin-top:12px">
           <div class="muted">Touch Controls</div>
@@ -88,7 +88,7 @@
 
   // World objects types: solid, spike, goal, moving (solid with vx/vy), switch, door
 
-  // --- Level Generator: handcraft templates and then vary to produce 33 levels ---
+  // --- Level Generator: handcraft templates and then vary to produce 100 levels ---
   const templates = [];
 
   // Helper to push base ground
@@ -103,7 +103,7 @@
 
   // MIDDLE: moving platforms, shrink-to-pass tunnels
   templates.push(function(){ let items=[]; baseGround(items); items.push({x:140,y:520,w:100,h:16,type:'solid'}); 
-    // VERTICAL: REDUCED: 0.6 -> 0.3
+    // VERTICAL: REDUCED: 0.6 -> 0.3 (50% reduction)
     items.push({x:300,y:480,w:120,h:16,type:'moving',vx:0,vy:0.3,range:60}); 
     items.push({x:480,y:420,w:140,h:16,type:'solid'}); items.push({x:300,y:360,w:80,h:16,type:'solid'}); items.push({x:600,y:320,w:40,h:40,type:'goal'}); return {name:'Rising Platform', start:{x:60,y:520}, items}; });
 
@@ -117,8 +117,8 @@
     return {name:'Shrink & Slip', start:{x:40,y:520}, items}; });
 
   templates.push(function(){ let items=[]; baseGround(items); items.push({x:120,y:540,w:120,h:16,type:'solid'}); items.push({x:260,y:520,w:60,h:16,type:'spike'}); items.push({x:340,y:500,w:60,h:16,type:'solid'}); 
-    // HORIZONTAL: REDUCED: 1 -> 0.5
-    items.push({x:440,y:460,w:60,h:16,type:'moving',vx:0.5,vy:0,range:120}); 
+    // HORIZONTAL: REDUCED: 1 -> 0.3 (70% reduction)
+    items.push({x:440,y:460,w:60,h:16,type:'moving',vx:0.3,vy:0,range:120}); 
     items.push({x:600,y:420,w:40,h:40,type:'goal'}); return {name:'Moving Danger', start:{x:40,y:520}, items}; });
 
   // HARDER: switch-doors, precision tunnels
@@ -129,24 +129,41 @@
     for(let i=1;i<6;i++) items.push({x:80*i,y:600,w:20,h:40,type:'spike'});
     items.push({x:520,y:520,w:120,h:16,type:'solid'}); items.push({x:600,y:480,w:40,h:40,type:'goal'}); return {name:'Spike Gauntlet', start:{x:40,y:520}, items}; });
 
-  // create 33 levels by cycling/transforming templates with increasing difficulty
+  // create 100 levels by cycling/transforming templates with increasing difficulty
   const levels = [];
-  let levelCount = 33;
+  let levelCount = 100; // Increased level count!
   for(let i=0;i<levelCount;i++){
     // pick one template and mutate it
     const tpl = templates[i % templates.length]();
-    const copy = JSON.parse(JSON.stringify(tpl));
+    let copy = JSON.parse(JSON.stringify(tpl));
+
+    // Apply transformations to prevent repetition and increase difficulty later
+    if (i % templates.length === 0 && i > 0) { // Mirror/transform on the start of a cycle
+      // Mirror the X axis of objects (Roughly center at 320)
+      copy.items.forEach(item => {
+        item.x = W - item.x - item.w;
+        // Mirror horizontal velocity
+        if (item.vx) item.vx *= -1;
+      });
+      copy.start.x = W - copy.start.x;
+      copy.name = `MIRRORED ${copy.name}`;
+    }
+
     copy.name = `${i+1}. ${copy.name}`;
+
     // increase challenge: add spikes and moving platforms as level number grows
-    if(i>6) copy.name += ' ★';
-    if(i>10){ // add some spikes
-      copy.items.push({x: 140 + (i*7)%360, y:600, w:20, h:40, type:'spike'});
+    if(i>10) copy.name += ' ★';
+    if(i>30){ // add more spikes
+      copy.items.push({x: 100 + (i*9)%400, y:600, w:20, h:40, type:'spike'});
     }
-    if(i>15){ // add moving platforms
-      // RANDOMLY GENERATED: REDUCED: 0.8/-0.8 -> 0.4/-0.4
-      copy.items.push({x: 200 + (i*11)%300, y:480 - (i%3)*30, w:80, h:16, type:'moving', vx: (i%2?0.4:-0.4), vy:0, range:100 + (i%4)*30});
+    if(i>50){ // add moving platforms (REDUCED SPEED)
+      // HORIZONTAL: REDUCED: 0.8/-0.8 -> 0.24/-0.24 (70% reduction)
+      const vx_base = (i%2?0.24:-0.24); 
+      // VERTICAL: REDUCED: 0.6/-0.6 -> 0.3/-0.3 (50% reduction)
+      const vy_base = (i%3===0 ? (i%2?0.3:-0.3) : 0); 
+      copy.items.push({x: 200 + (i*11)%300, y:480 - (i%3)*30, w:80, h:16, type:'moving', vx: vx_base, vy: vy_base, range:100 + (i%4)*30});
     }
-    if(i>22){ // narrow tunnels requiring shrink
+    if(i>70){ // narrow tunnels requiring shrink
       copy.items.push({x: 300 + (i*5)%220, y:420, w:16, h:120, type:'solid'});
     }
     // set reasonable start point if missing
@@ -159,18 +176,23 @@
   }
 
   // add some handcrafted boss/puzzle near the end
-  levels[30] = {
-    name: '31. The Elevator Puzzle', start:{x:60,y:520}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:160,y:520,w:80,h:16,type:'solid'},
-    // ELEVATOR: REDUCED: -0.7 -> -0.35
+  // Levels 98, 99, 100 (array indices 97, 98, 99) are manually defined or modified here
+
+  // Level 98 (index 97) - Based on Elevator Puzzle
+  levels[97] = {
+    name: '98. The Grand Elevator (Slow)', start:{x:60,y:520}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:160,y:520,w:80,h:16,type:'solid'},
+    // ELEVATOR: REDUCED: -0.7 -> -0.35 (50% reduction)
     {x:280,y:520,w:80,h:16,type:'moving',vx:0,vy:-0.35,range:160},{x:420,y:420,w:80,h:16,type:'solid'},{x:540,y:360,w:40,h:16,type:'solid'},{x:600,y:320,w:40,h:40,type:'goal'}]
   };
-  levels[31] = {
-    name: '32. Narrow Mind', start:{x:40,y:540}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:120,y:520,w:40,h:120,type:'solid'},{x:180,y:520,w:40,h:120,type:'solid'},{x:240,y:520,w:40,h:120,type:'solid'},{x:300,y:520,w:40,h:120,type:'solid'},{x:420,y:520,w:120,h:16,type:'solid'},{x:600,y:420,w:40,h:40,type:'goal'}]
+  // Level 99 (index 98)
+  levels[98] = {
+    name: '99. Narrow Final Approach', start:{x:40,y:540}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:120,y:520,w:40,h:120,type:'solid'},{x:180,y:520,w:40,h:120,type:'solid'},{x:240,y:520,w:40,h:120,type:'solid'},{x:300,y:520,w:40,h:120,type:'solid'},{x:420,y:520,w:120,h:16,type:'solid'},{x:600,y:420,w:40,h:40,type:'goal'}]
   };
-  levels[32] = {
-    name: '33. Final Test', start:{x:60,y:520}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:140,y:540,w:80,h:16,type:'solid'},{x:240,y:520,w:60,h:16,type:'spike'},
-    // FINAL TEST: REDUCED: 1.2 -> 0.6
-    {x:320,y:500,w:120,h:16,type:'moving',vx:0.6,vy:0,range:140},{x:480,y:460,w:16,h:120,type:'solid'},{x:600,y:420,w:40,h:40,type:'goal'}]
+  // Level 100 (index 99)
+  levels[99] = {
+    name: '100. FINAL TEST (Slow)', start:{x:60,y:520}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:140,y:540,w:80,h:16,type:'solid'},{x:240,y:520,w:60,h:16,type:'spike'},
+    // FINAL TEST: REDUCED: 1.2 -> 0.36 (70% reduction)
+    {x:320,y:500,w:120,h:16,type:'moving',vx:0.36,vy:0,range:140},{x:480,y:460,w:16,h:120,type:'solid'},{x:600,y:420,w:40,h:40,type:'goal'}]
   };
 
   // collision helpers
