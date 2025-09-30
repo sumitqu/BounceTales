@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bounce Tales — Full Style (33 Levels)</title>
+  <style>
+    :root{--bg:#071423;--panel:#0f1724;--accent:#ff5c5c;--muted:#9aa6b2}
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{background:linear-gradient(180deg,#071027 0%, #061423 60%);display:flex;align-items:center;justify-content:center;color:#e6eef6}
+    .wrap{width:980px;max-width:98vw;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));box-shadow:0 10px 30px rgba(2,6,23,.6);border-radius:12px;padding:18px;display:grid;grid-template-columns:1fr 320px;gap:12px}
+    canvas{background:linear-gradient(180deg,#071a2b 0%, #061423 100%);border-radius:8px;width:100%;height:640px;display:block}
+    .sidebar{padding:12px;background:rgba(255,255,255,0.02);border-radius:8px}
+    h1{margin:0 0 8px 0;font-size:16px}
+    p{margin:6px 0;color:var(--muted);font-size:13px}
+    .controls{display:grid;gap:6px;margin-top:8px}
+    .kbd{background:#081223;border:1px solid rgba(255,255,255,0.03);padding:8px;border-radius:6px;font-size:13px}
+    .btn{display:inline-block;padding:8px 10px;border-radius:6px;background:#0b1a2b;border:1px solid rgba(255,255,255,0.02);cursor:pointer}
+    .footer{margin-top:14px;color:var(--muted);font-size:12px}
+    .hud{position:absolute;left:22px;top:14px;color:#fff;font-weight:700;text-shadow:0 1px 0 rgba(0,0,0,.6)}
+    .touch-row{display:flex;gap:8px;margin-top:10px}
+    .touch-btn{flex:1;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);text-align:center;user-select:none}
+    .muted{color:var(--muted);font-size:13px}
+    .level-preview{height:240px;background:linear-gradient(180deg,#071227 0%, #081520 100%);border-radius:6px;padding:8px;overflow:auto;font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div style="position:relative;">
+      <div class="hud" id="hud">Level 1 &nbsp; &nbsp; Lives: 3 &nbsp; &nbsp; Mode: Classic</div>
+      <canvas id="game" width="640" height="640"></canvas>
+    </div>
+
+    <div class="sidebar">
+      <h1>Bounce Tales — Full Bounce Style</h1>
+      <p class="muted">Controls: ← → to move, ↑ to jump. Z = shrink, X = expand, R = restart. Touch controls below for mobile.</p>
+
+      <div class="controls">
+        <div class="kbd">Keyboard: ← → ↑  |  Z (shrink)  X (expand)  R (restart)</div>
+        <div class="kbd">Tip: shrink to fit narrow tunnels, expand to press switches or trigger pads.</div>
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <div class="btn" id="prev">Prev Level</div>
+          <div class="btn" id="next">Next Level</div>
+          <div class="btn" id="restart">Restart</div>
+        </div>
+
+        <div class="level-preview" id="levelPreview"></div>
+
+        <div class="footer">33 handcrafted levels with a gradual difficulty ramp: platforms, moving platforms, spikes, shrink tunnels, switches, and puzzle sections. If you want sound, checkpoints, or a level editor next — say the word.</div>
+
+        <div style="margin-top:12px">
+          <div class="muted">Touch Controls</div>
+          <div class="touch-row">
+            <div class="touch-btn" id="touch-left">◀</div>
+            <div class="touch-btn" id="touch-jump">▲</div>
+            <div class="touch-btn" id="touch-right">▶</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ------------------- Engine (improved) -------------------
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const hud = document.getElementById('hud');
+  const levelPreview = document.getElementById('levelPreview');
+  const W = canvas.width, H = canvas.height;
+
+  // Player
+  const player = {
+    x:60, y:520, r:18, baseR:18,
+    vx:0, vy:0, onGround:false,
+    shrunk:false, shrinkFactor:0.55,
+    color:'#ff5c5c'
+  };
+
+  // physics params
+  let gravity = 0.9;
+  // INCREASED friction as requested: stronger damping
+  let friction = 0.86; // was 0.95 earlier; lower => more damping
+  let airDrag = 0.995;
+  let keys = {};
+  let currentLevel = 0;
+  let lives = 3;
+
+  // World objects types: solid, spike, goal, moving (solid with vx/vy), switch, door
+
+  // --- Level Generator: handcraft templates and then vary to produce 33 levels ---
+  const templates = [];
+
+  // Helper to push base ground
+  function baseGround(items){ items.push({x:0,y:600,w:640,h:40,type:'solid'}); }
+
+  // EASY: tutorial, gentle gaps
+  templates.push(function(){ let items=[]; baseGround(items); items.push({x:150,y:520,w:120,h:16,type:'solid'}); items.push({x:340,y:480,w:120,h:16,type:'solid'}); items.push({x:540,y:420,w:80,h:16,type:'solid'}); items.push({x:600,y:380,w:40,h:40,type:'goal'}); return {name:'Tutorial — Basics', start:{x:60,y:520}, items}; });
+
+  templates.push(function(){ let items=[]; baseGround(items); items.push({x:100,y:520,w:60,h:120,type:'solid'}); items.push({x:260,y:520,w:60,h:120,type:'solid'}); items.push({x:200,y:420,w:84,h:16,type:'solid'}); items.push({x:360,y:480,w:120,h:16,type:'solid'}); items.push({x:580,y:380,w:40,h:40,type:'goal'}); return {name:'Tight Tunnel', start:{x:40,y:540}, items}; });
+
+  templates.push(function(){ let items=[]; baseGround(items); items.push({x:180,y:560,w:120,h:16,type:'solid'}); items.push({x:320,y:560,w:120,h:16,type:'solid'}); items.push({x:260,y:600,w:20,h:40,type:'spike'}); items.push({x:420,y:600,w:20,h:40,type:'spike'}); items.push({x:580,y:520,w:40,h:40,type:'goal'}); return {name:'Spikes & Jump', start:{x:40,y:540}, items}; });
+
+  // MIDDLE: moving platforms, shrink-to-pass tunnels
+  templates.push(function(){ let items=[]; baseGround(items); items.push({x:140,y:520,w:100,h:16,type:'solid'}); items.push({x:300,y:480,w:120,h:16,type:'moving',vx:0,vy:0.6,range:60}); items.push({x:480,y:420,w:140,h:16,type:'solid'}); items.push({x:300,y:360,w:80,h:16,type:'solid'}); items.push({x:600,y:320,w:40,h:40,type:'goal'}); return {name:'Rising Platform', start:{x:60,y:520}, items}; });
+
+  templates.push(function(){ let items=[]; baseGround(items); // shrink puzzle
+    items.push({x:120,y:540,w:60,h:100,type:'solid'});
+    items.push({x:220,y:520,w:40,h:16,type:'solid'});
+    // narrow tunnel
+    items.push({x:300,y:520,w:16,h:140,type:'solid'});
+    items.push({x:340,y:540,w:120,h:16,type:'solid'});
+    items.push({x:580,y:480,w:40,h:40,type:'goal'});
+    return {name:'Shrink & Slip', start:{x:40,y:520}, items}; });
+
+  templates.push(function(){ let items=[]; baseGround(items); items.push({x:120,y:540,w:120,h:16,type:'solid'}); items.push({x:260,y:520,w:60,h:16,type:'spike'}); items.push({x:340,y:500,w:60,h:16,type:'solid'}); items.push({x:440,y:460,w:60,h:16,type:'moving',vx:1,vy:0,range:120}); items.push({x:600,y:420,w:40,h:40,type:'goal'}); return {name:'Moving Danger', start:{x:40,y:520}, items}; });
+
+  // HARDER: switch-doors, precision tunnels
+  templates.push(function(){ let items=[]; baseGround(items); items.push({x:160,y:540,w:80,h:16,type:'solid'}); items.push({x:300,y:520,w:60,h:16,type:'solid'}); items.push({x:420,y:480,w:16,h:120,type:'solid'}); // vertical bar forming narrow corridor
+    items.push({x:500,y:520,w:40,h:16,type:'solid'}); items.push({x:600,y:420,w:40,h:40,type:'goal'}); return {name:'Precision Corridor', start:{x:60,y:520}, items}; });
+
+  templates.push(function(){ let items=[]; baseGround(items); // alternating spikes
+    for(let i=1;i<6;i++) items.push({x:80*i,y:600,w:20,h:40,type:'spike'});
+    items.push({x:520,y:520,w:120,h:16,type:'solid'}); items.push({x:600,y:480,w:40,h:40,type:'goal'}); return {name:'Spike Gauntlet', start:{x:40,y:520}, items}; });
+
+  // create 33 levels by cycling/transforming templates with increasing difficulty
+  const levels = [];
+  let levelCount = 33;
+  for(let i=0;i<levelCount;i++){
+    // pick one template and mutate it
+    const tpl = templates[i % templates.length]();
+    const copy = JSON.parse(JSON.stringify(tpl));
+    copy.name = `${i+1}. ${copy.name}`;
+    // increase challenge: add spikes and moving platforms as level number grows
+    if(i>6) copy.name += ' ★';
+    if(i>10){ // add some spikes
+      copy.items.push({x: 140 + (i*7)%360, y:600, w:20, h:40, type:'spike'});
+    }
+    if(i>15){ // add moving platforms
+      copy.items.push({x: 200 + (i*11)%300, y:480 - (i%3)*30, w:80, h:16, type:'moving', vx: (i%2?0.8:-0.8), vy:0, range:100 + (i%4)*30});
+    }
+    if(i>22){ // narrow tunnels requiring shrink
+      copy.items.push({x: 300 + (i*5)%220, y:420, w:16, h:120, type:'solid'});
+    }
+    // set reasonable start point if missing
+    if(!copy.start) copy.start = {x:60,y:520};
+    // final level endings
+    if(Math.random() > 0.85){ copy.items.push({x:600,y:320,w:40,h:40,type:'goal'}); }
+    // ensure at least one goal exists
+    if(!copy.items.some(it=>it.type==='goal')) copy.items.push({x:600,y:320,w:40,h:40,type:'goal'});
+    levels.push(copy);
+  }
+
+  // add some handcrafted boss/puzzle near the end
+  levels[30] = {
+    name: '31. The Elevator Puzzle', start:{x:60,y:520}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:160,y:520,w:80,h:16,type:'solid'},{x:280,y:520,w:80,h:16,type:'moving',vx:0,vy:-0.7,range:160},{x:420,y:420,w:80,h:16,type:'solid'},{x:540,y:360,w:40,h:16,type:'solid'},{x:600,y:320,w:40,h:40,type:'goal'}]
+  };
+  levels[31] = {
+    name: '32. Narrow Mind', start:{x:40,y:540}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:120,y:520,w:40,h:120,type:'solid'},{x:180,y:520,w:40,h:120,type:'solid'},{x:240,y:520,w:40,h:120,type:'solid'},{x:300,y:520,w:40,h:120,type:'solid'},{x:420,y:520,w:120,h:16,type:'solid'},{x:600,y:420,w:40,h:40,type:'goal'}]
+  };
+  levels[32] = {
+    name: '33. Final Test', start:{x:60,y:520}, items:[{x:0,y:600,w:640,h:40,type:'solid'},{x:140,y:540,w:80,h:16,type:'solid'},{x:240,y:520,w:60,h:16,type:'spike'},{x:320,y:500,w:120,h:16,type:'moving',vx:1.2,vy:0,range:140},{x:480,y:460,w:16,h:120,type:'solid'},{x:600,y:420,w:40,h:40,type:'goal'}]
+  };
+
+  // collision helpers
+  function collideRect(px,py,pr,rx,ry,rw,rh){
+    const nx = Math.max(rx, Math.min(px, rx+rw));
+    const ny = Math.max(ry, Math.min(py, ry+rh));
+    const dx = px - nx; const dy = py - ny; return (dx*dx + dy*dy) <= pr*pr;
+  }
+
+  function resetLevel(){
+    const lvl = levels[currentLevel];
+    player.x = lvl.start.x; player.y = lvl.start.y; player.vx=0; player.vy=0; player.r=player.baseR; player.shrunk=false; lives = Math.max(1,lives);
+    // attach runtime fields for moving platforms
+    for(const it of lvl.items){ if(it.type==='moving'){ it._origX = it.x; it._origY = it.y; it._t = 0; } }
+    updatePreview();
+  }
+
+  function updatePreview(){
+    const lvl = levels[currentLevel];
+    levelPreview.innerHTML = `<strong>${lvl.name}</strong><br>Objects:<br>` + lvl.items.map(it=>`- ${it.type} @ ${it.x},${it.y} (${it.w}x${it.h})${it.type==='moving'? ' (moving)':''}`).join('<br>');
+    hud.textContent = `Level ${currentLevel+1} / ${levels.length}  Lives: ${lives}`;
+  }
+
+  function dieAndRespawn(){ lives -=1; if(lives<=0){ currentLevel=0; lives=3; } resetLevel(); }
+  function nextLevel(){ currentLevel++; if(currentLevel>=levels.length) currentLevel=0; resetLevel(); }
+
+  // Input
+  window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()]=true; if(e.key.toLowerCase()==='r') resetLevel(); });
+  window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
+  // touch
+  document.getElementById('touch-left').addEventListener('touchstart', e=>{ keys['arrowleft']=true; e.preventDefault();});
+  document.getElementById('touch-left').addEventListener('touchend', e=>{ keys['arrowleft']=false; e.preventDefault();});
+  document.getElementById('touch-right').addEventListener('touchstart', e=>{ keys['arrowright']=true; e.preventDefault();});
+  document.getElementById('touch-right').addEventListener('touchend', e=>{ keys['arrowright']=false; e.preventDefault();});
+  document.getElementById('touch-jump').addEventListener('touchstart', e=>{ keys['arrowup']=true; setTimeout(()=>keys['arrowup']=false,150); e.preventDefault();});
+
+  document.getElementById('prev').addEventListener('click', ()=>{ currentLevel = Math.max(0,currentLevel-1); resetLevel(); });
+  document.getElementById('next').addEventListener('click', ()=>{ currentLevel = Math.min(levels.length-1,currentLevel+1); resetLevel(); });
+  document.getElementById('restart').addEventListener('click', ()=>resetLevel());
+
+  // shrink toggle
+  function applyShrink(val){ if(val && !player.shrunk){ player.r = Math.max(8, player.baseR*player.shrinkFactor); player.shrunk=true; } else if(!val && player.shrunk){ player.r = player.baseR; player.shrunk=false; } }
+
+  // update moving platforms
+  function updateMovingPlatforms(lvl,dt){ for(const it of lvl.items){ if(it.type==='moving'){ it._t += dt; // simple sinusoidal movement
+      it.x = it._origX + Math.sin(it._t*0.01) * (it.vx ? it.range : 0);
+      it.y = it._origY + Math.sin(it._t*0.01) * (it.vy ? it.range : 0);
+    } } }
+
+  // resolve collisions with better separation handling
+  function resolveCollisions(){
+    player.onGround = false; const lvl = levels[currentLevel];
+    for(const it of lvl.items){ if(it.type==='solid' || it.type==='moving' || it.type==='spike' || it.type==='goal'){
+        if(collideRect(player.x, player.y, player.r, it.x, it.y, it.w, it.h)){
+          // find nearest point
+          const nx = Math.max(it.x, Math.min(player.x, it.x+it.w));
+          const ny = Math.max(it.y, Math.min(player.y, it.y+it.h));
+          const dx = player.x - nx; const dy = player.y - ny;
+          // push out along greater penetration
+          if(Math.abs(dy) < Math.abs(dx)){
+            // move vertically
+            if(player.y < it.y){ // above
+              player.y = it.y - player.r - 0.01; player.vy = 0; player.onGround = true;
+            } else { player.y = it.y + it.h + player.r + 0.01; player.vy = 0; }
+          } else {
+            if(player.x < it.x){ player.x = it.x - player.r - 0.01; player.vx = 0; } else { player.x = it.x + it.w + player.r + 0.01; player.vx = 0; }
+          }
+
+          if(it.type==='spike'){ dieAndRespawn(); }
+          if(it.type==='goal'){ nextLevel(); }
+        }
+      } }
+  }
+
+  // time tracking for moving platforms
+  let lastMs = performance.now();
+  function update(){
+    const now = performance.now(); const dt = now - lastMs; lastMs = now;
+    const accel = 1.0; // stronger control for platforming
+    if(keys['arrowleft']||keys['a']) player.vx -= accel;
+    if(keys['arrowright']||keys['d']) player.vx += accel;
+    if((keys['arrowup']||keys['w']||keys[' ']) && player.onGround){ player.vy = -16; player.onGround=false; }
+    if(keys['z']) applyShrink(true); else if(keys['x']) applyShrink(false);
+
+    // physics
+    player.vy += gravity * (dt/16);
+    player.vx *= friction;
+    player.vx *= airDrag;
+    player.x += player.vx * (dt/16);
+    player.y += player.vy * (dt/16);
+
+    // moving platforms update
+    updateMovingPlatforms(levels[currentLevel], dt);
+
+    // bounds
+    if(player.x - player.r < 0){ player.x = player.r; player.vx=0; }
+    if(player.x + player.r > W){ player.x = W - player.r; player.vx=0; }
+    if(player.y - player.r < 0){ player.y = player.r; player.vy = 0; }
+    if(player.y - player.r > H+220){ dieAndRespawn(); }
+
+    resolveCollisions();
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // background
+    ctx.fillStyle = '#061423'; ctx.fillRect(0,0,W,H);
+    // stars
+    for(let i=0;i<90;i++){ ctx.fillStyle='rgba(255,255,255,0.01)'; ctx.fillRect((i*97)%W, 20 + ((i*41)%260), 2,2); }
+
+    // draw items
+    const lvl = levels[currentLevel];
+    for(const it of lvl.items){
+      if(it.type==='solid' || it.type==='moving'){
+        ctx.fillStyle = '#163044'; ctx.fillRect(it.x, it.y, it.w, it.h);
+        ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fillRect(it.x, it.y, it.w, 4);
+        // moving marker
+        if(it.type==='moving'){ ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillRect(it.x+it.w/2-2, it.y-6,4,4); }
+      } else if(it.type==='spike'){
+        const spikes = Math.ceil(it.w/12);
+        for(let s=0;s<spikes;s++){ const sx = it.x + s*(it.w/spikes); ctx.beginPath(); ctx.moveTo(sx, it.y+it.h); ctx.lineTo(sx + (it.w/spikes)/2, it.y); ctx.lineTo(sx + (it.w/spikes), it.y+it.h); ctx.fillStyle = '#d94b3d'; ctx.fill(); }
+      } else if(it.type==='goal'){
+        ctx.beginPath(); ctx.fillStyle = '#2ecc71'; ctx.arc(it.x+it.w/2, it.y+it.h/2, Math.min(it.w,it.h)/2, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#072e1a'; ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText('GO', it.x+it.w/2, it.y+it.h/2+5);
+      }
+    }
+
+    // player
+    ctx.beginPath(); ctx.fillStyle = player.color; ctx.shadowColor = player.color; ctx.shadowBlur = 12; ctx.arc(player.x, player.y, player.r, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.arc(player.x - player.r*0.25, player.y - player.r*0.45, player.r*0.36, 0, Math.PI*2); ctx.fill();
+  }
+
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+
+  // boot
+  resetLevel(); loop();
+
+  // Expose levels variable for debugging in console
+  window._bounce_levels = levels;
+  </script>
+</body>
+</html>
